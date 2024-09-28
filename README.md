@@ -1,6 +1,6 @@
 # PyQt5-Risk-Indicators-Automation-App
 
-> This software has been developed during my full-time employment as a Python developer in the Operational Risk Management divison of Credit Agricole CIB London Branch. The full code of this project cannot be made public due to the intellectual rights rights outlined in my employment contract. The documentation provided below, while not exhaustive, offers a comprehensive overview of the program's core architecture. Its purpose is to showcase my initial experience with GUI development and the principles of event-driven programming.
+> This software has been developed during my full-time employment as a Python developer in the Operational Risk Management divison of Credit Agricole CIB London Branch. The full code of this project cannot be made public due to the intellectual rights rights outlined in my employment contract. The documentation provided below, while not exhaustive, offers a comprehensive overview of the program's core architecture. Its purpose is to showcase my initial experience with GUI development in Python and the principles of event-driven programming.
 
 The KRI automation app is a single page GUI (Graphical User Interface) automating three main tasks in the KRI (Key Risk Indicator)collection process:
 
