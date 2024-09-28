@@ -32,4 +32,14 @@ The automation of each of the above three tasks is described in its correspondin
    2. Reads the KRI table from the database as a pandas dataframe
    3. Writes the KRI results to the KRI table
 
-The implementation of each task is further detailed in its respective Python file.
+![](https://github.com/achanbour/PyQt5-Risk-Indicators-Automation-App/blob/main/PyQt5-Risk-Indicators-Automation-App-Python-Files.png)
+
+The ```gui.py``` file defines the application's user interface (UI) and invokes functions from ```generate_excel.py```, ```send_emails.py```, ```update_db.py``` in response to specific user-triggered events.
+
+Below are some blueprints of the application's graphical structure:
+
+![](https://github.com/achanbour/PyQt5-Risk-Indicators-Automation-App/blob/main/PyQt5-Risk-Indicators-Automation-App-UI-Windowspng.png)
+
+![](https://github.com/achanbour/PyQt5-Risk-Indicators-Automation-App/blob/main/PyQt5-Risk-Indicators-Automation-App-Error-Popup-Window.png)
+
+The details of the UI design and event flow implementation can be found in the ```gui.py``` file included in this repository.
