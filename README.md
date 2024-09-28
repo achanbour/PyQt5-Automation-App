@@ -1,6 +1,8 @@
 # PyQt5-Automation-App
 
-The KRI automation app described below is a single page GUI (Graphical User Interface) automating three core tasks in the KRI (Key Risk Indicator)collection process:
+> This software has been developed during my full-time employment as a Python developer in the Operational Risk Management divison of Credit Agricole CIB London Branch. The full code of this project cannot be made public due to the intellectual rights rights outlined in my employment contract. The documentation provided below, while not exhaustive, offers a comprehensive overview of the program's core architecture. Its purpose is to showcase my initial experience with GUI development and the principles of event-driven programming.
+
+The KRI automation app is a single page GUI (Graphical User Interface) automating three main tasks in the KRI (Key Risk Indicator)collection process:
 
 1. Generating Excel files from the KRI master table of the operational risk database
 2. Sending emails to a list of recipients stored in the operational risk database attaching the generated files from step 1
