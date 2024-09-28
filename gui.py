@@ -1,8 +1,7 @@
 import sys
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QLabel, QLineEdit, QComboBox, QCalendarWidget, QProgressBar
-    QPushButton, QVBoxLayout, QHBoxLayout, QWidget
-)
+    QApplication, QMainWindow, QDialog, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QLineEdit, QComboBox, QCalendarWidget,
+    QProgressBar, QMessageBox, QPushButton, QDialogButtonBox)
 from PyQt5.QtCore import QObject, pyqtSignal
 import generate_excel
 import send_emails
@@ -72,10 +71,10 @@ class UpdaterWorker(QObject):
     # Define the signal indicating completion after the KRI table has been updated with the KRI results
     kri_table_updated = pyqtSignal()
 
-    def update_kri_table(self):
+    def update_kri_table(self, selected_business_line):
         # Called when the user clicks on the "Update DB" button
         # Calls the update_kri_table() method from update_db.py
-        update_db.update_kri_table()
+        update_db.update_kri_table(selected_business_line)
         # Emits terminating signal upon completion
         self.kri_table_updated.emit()
 
@@ -94,6 +93,7 @@ class Window(QMainWindow):
         self.user_entered_year = None
         self.user_selected_month = None
         self.user_selected_deadline = None
+        self.selected_business_line = None
 
         # Create central widget and layout
         central_widget = QWidget(self)
@@ -159,7 +159,7 @@ class Window(QMainWindow):
         # Define the action on each button
         self.btn_generate_excel.clicked.connect(self.start_generate_excel)
         self.btn_send_emails.clicked.connect(self.start_send_emails)
-        self.btn_update_db.clicked.connect()
+        self.btn_update_db.clicked.connect(self.display_business_line_dialog)
 
     # The UiWidgets() method defines the window's widgets
     def UiWidgets(self):
@@ -181,8 +181,13 @@ class Window(QMainWindow):
         # Add the input layout to the form layout
         self.form_layout.addLayout(input_layout)
 
-    # Define a thread for generating the Excel reports and sending emails (both tasks are intentionally included in the same thread
-    # as they are performed sequentially)
+        # Connect the signals emitted by user interactions with the widgets to methods that capture the user-input data
+        self.input_year.textChanged.connect(self.capture_input_year)
+        self.combo_month.currentIndexChanged.connect(self.capture_combo_month)
+        self.calendar_deadline.selectionChanged.connect(self.capture_calendar_deadline)
+
+    # The setUpMainThread() method defines a thread for generating the Excel reports and sending emails (both tasks are intentionally
+    # included in the same thread as they are performed sequentially)
     def setUpMainThread(self):
         self.worker_object = MainWorker()
         self.worker_thread = QThread()
@@ -196,20 +201,66 @@ class Window(QMainWindow):
         self.worker_object.number_of_emails_sent.connect(self.update_progress_bar)
         self.worker_object.all_emails_sent.connect(self.display_all_emails_sent_confirmation_message)
 
+    # The setUpUpdaterThread() method defines a thread for updating the KRI table with the received KRI results
+    def setUpUpdaterThread(self):
+        self.updater_worker_object = UpdaterWorker()
+        self.updater_worker_thread = QThread(self)
+        self.updater_worker_object.moveToThread(self.updater_worker_thread)
+        # Note: using a lambda function below as a wrapper to pass selected_business_line as a parameter to
+        # update_kri_table slot function in the signal connection
+        # The lambda function is a callable that takes no parameters but calls the desired method with a parameter
+        self.updater_worker_thread.started.connect(lambda: self.updater_worker_object.update_kri_table(self.selected_business_line))
+
+        # Connect signals to slots
+        self.updater_worker_object.kri_table_updated.connect(self.display_kri_table_updated_confirmation_message)
+
     """
     Define all slot functions
     """
 
-    # Define a method to enable the "Send emails" button (another slot function to the all_excels_generated signal)
+    # The method below captures and validates the user-entered year from the QLineEdit widget
+    def capture_input_year(self):
+        self.user_entered_year = self.input_year.text()
+        # Validate the year format: it must start with '20' and the last two digits must be greater than 24 (year >= 2024)
+        if self.user_entered_year.isdigit() and len(self.user_entered_year) == 4:
+            first_two_digits = self.user_entered_year[:2]
+            last_two_digits = int(self.user_entered_year[2:])
+            # Check if the first two digits are '20' and last two digits are greater than 24
+            if first_two_digits != '20' or last_two_digits < 24:
+                self.show_error_message_box("Invalid year", "Please enter a valid year greater than or equal to '2024'")
+                self.user_entered_year = None
+        else:
+            self.show_error_message_box("Invalid year", "Please enter a 4-digit year in the format 'YYYY'.")
+            self.user_entered_year = None
+
+    # The method below captures the user-selected month from the QComboBox widget
+    def capture_combo_month(self):
+        self.user_selected_month = self.combo_month.currentText()
+        print(f"Selected month: {self.user_selected_month}")
+
+    # The method below captures the user-selected deadline date from the QCalendar widget
+    def capture_calendar_deadline(self):
+        self.user_selected_deadline = self.calendar_deadline.selectedDate()
+        print(f"Selected Deadline: {self.user_selected_deadline.toString()}")
+
+    # The method below enables the "Send emails" button (another slot function to the all_excels_generated signal)
     def enable_send_emails_button(self):
         self.btn_send_emails.setEnabled(True)
 
+    # The method below starts the excel generation task
     def start_generate_excel(self):
+        if self.user_entered_year is None or self.user_selected_month is None or self.user_selected_deadline is None:
+            self.show_error_message_box("Missing input data", "Please make sure you have filled all the required fields before proceeding.")
+            return  # Exit the method if any input is missing
+
+        # Set up the worker and thread before starting
+        self.setUpMainThread()
         # Show the progress bar before starting
         self.show_progress_bar()
-        # Start the worker thread
+        # Start the worker thread (generate Excel task)
         self.worker_thread.start()
 
+    # The method below starts the email sending task
     def start_send_emails(self):
         # Note: Calling the send_emails() method on the worker assumes that the worker thread is already running
         ## Since the "Send emails" step is executed right after "Generate Excel" in the same program session, it is safe to execute this step
@@ -217,11 +268,43 @@ class Window(QMainWindow):
         ## only made available to the user after the "Generate Excel" step successfully completes
         self.worker_object.send_emails()  # Call send_emails directly
 
+    # The method below displays an input dialog with a combobox allowing the user to select the business line for which they want to update the KRI table
+    def display_business_line_dialog(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Update KRI Table")
+
+        combo_box = QComboBox()
+        combo_box.addItems(["Business Line 1", "Business Line 2", "Business Line 3", "Business Line 4"])
+
+        label = QLabel("Select a business line to update the KRI table:")
+
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(dialog.accept)
+        button_box.rejected.connect(dialog.reject)
+
+        # Define the dialog's layout
+        layout = QVBoxLayout()
+        layout.addWidget(label)
+        layout.addWidget(combo_box)
+        layout.addWidget(button_box)
+        dialog.setLayout(layout)
+
+        # Show the dialog and capture the result
+        if dialog.exec_() == QDialog.Accepted:
+            self.selected_business_line = combo_box.currentText()
+            # Validate the selected business line
+            if not self.selected_business_line:  # Check if the selection is None or an empty string
+                self.show_error_message_box(self, "Missing business line selection", "Please make sure to select a business line before proceeding.")
+            else:
+                self.setUpUpdaterThread()  # Proceed if the selection is valid
+
+
     # The method below shows the progress bar
     def show_progress_bar(self):
         self.progress_bar.show()
         self.progress_bar.setValue(0)
 
+    # The method below updates the progress bar dynamically during execution
     def update_progress_bar(self, value):
         QApplication.processEvents()
         self.progress_bar.setValue(value)
@@ -238,10 +321,24 @@ class Window(QMainWindow):
         # Reset and hide progress bar
         self.reset_and_hide_progress_bar()
 
+    # The method below is a slot function called upon termination of the KRI table update task
+    def display_kri_table_updated_confirmation_message(self):
+        print("The KRI table has  been successfully updated with the KRI results.")
+
     # The method below resets the progress bar and hides it
     def reset_and_hide_progress_bar(self):
         self.progress_bar.setValue(0)
         self.progress_bar.hide()
+
+    # The method below displays a dialog box showing an error message to the user
+    ## The error dialog box is displayed when the validation checks fail on user-input data
+    # or if the user tries to proceed without entering data
+    def show_error_message_box(self, title, message):
+        error_message = QMessageBox(self)
+        error_message.setIcon(QMessageBox.Critical)
+        error_message.setWindowTitle(title)
+        error_message.setText(message)
+        error_message.exec_()
 
 # Main execution
 if __name__ == "__main__":
